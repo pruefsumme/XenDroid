@@ -562,12 +562,17 @@ private fun EmptyMessage(
     }
 }
 
-/** The app can only read its own folders now, so tell people where games have to go. */
-private fun copyGamesHint(dir: String): String =
-    "Copy your games to:\n$dir\n\n" +
+/** Where games have to go. Only the app folder needs the copy-in explanation; a folder
+ *  the user picked themselves (with All Files Access) just gets named. */
+private fun copyGamesHint(dir: String): String {
+    if ("/Android/data/" !in dir) return "Looked in:\n$dir"
+    return "Copy your games to:\n$dir\n\n" +
         "On internal storage you can do that on the phone: the system Files app shows " +
         "it as \"XenDroid\" > Games. From a PC, connect over USB and use the same path. " +
-        "Note: uninstalling the app deletes this folder."
+        "Note: uninstalling the app deletes this folder.\n\n" +
+        "Games already somewhere else, like Documents/Games? Tap \"Choose another\" > " +
+        "\"Other folders on this phone\"."
+}
 
 @Composable
 private fun NoVulkanDialog(onQuit: () -> Unit) {

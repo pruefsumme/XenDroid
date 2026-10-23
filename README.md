@@ -25,7 +25,7 @@ them, and align the port as a consequence.
 
 
 ## Where to put your games
-This build doesn't ask for "All files access". It only reads its own folder:
+Out of the box this build doesn't ask for "All files access" and only reads its own folder:
 
 ```
 Android/data/xendroid.compose/files/compose/Games
@@ -33,11 +33,15 @@ Android/data/xendroid.compose/files/compose/Games
 
 (`xendroid.compose.debug` for debug builds.) Copy your ISO / ZAR / XEX folders in there.
 You can do that on the phone with the system Files app, where the folder shows up as
-**XenDroid > Games**, or from a PC over USB. SD cards get their own `Android/data/...` folder,
-which you can pick under **Set game folder**. Sub-folders work too.
+**XenDroid > Games**, or from a PC over USB. Sub-folders work too. Android deletes this
+folder when the app is uninstalled, so keep a copy of your games somewhere else.
 
-Android deletes this folder when the app is uninstalled, so keep a copy of your games
-somewhere else.
+### Keeping games somewhere else
+If your games already live in e.g. `Documents/Games`, go to **Set game folder** >
+**Other folders on this phone**. That asks for "All files access" once (the app can then
+read all of your storage, which is why it's opt-in), after which you can pick any folder.
+You can turn the permission off again in Android's settings at any time; the library will
+tell you it lost access instead of pretending your games are gone.
 
 ## Building
 
