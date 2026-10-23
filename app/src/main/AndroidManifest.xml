@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Network: core's Application/native may probe; matches legacy :app. -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- No network on purpose: without INTERNET, Android refuses to open any socket for
+         this app, so nothing (app code, emulator core or a game) can send data out.
+         tools:node="remove" also strips them if a library ever tries to add them back.
+         Downside: games that crash when socket creation fails will crash here too. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
     <!-- Games live in the app's own external files dir by default (see GamesFolder.kt),
          which needs no permission. All Files Access is only requested if the user picks
          "Other folders on this phone" in the folder browser (AllFilesAccess.kt). -->

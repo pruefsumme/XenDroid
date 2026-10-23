@@ -2,7 +2,6 @@ package xendroid.compose.ui.library
 
 import android.app.Activity
 import android.content.Context
-import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -37,13 +36,9 @@ import xendroid.compose.ui.compress.GameCompressViewModel
 import xendroid.compose.ui.compress.GameCompressViewModel.CompressState
 import xendroid.compose.ui.userdata.openUserData
 import xendroid.compose.updater.CooldownDialog
-import xendroid.compose.updater.getRemainingCooldown
 import xendroid.compose.updater.LatestVersionDialog
 import xendroid.compose.updater.UpdateDialog
 import xendroid.compose.updater.UpdateResult
-import xendroid.compose.updater.checkForUpdates
-import xendroid.compose.updater.shouldCheckForUpdates
-import xendroid.compose.updater.saveLastCheck
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -147,19 +142,8 @@ fun GameLibraryScreen(
                             text = { Text("About") },
                             onClick = { menuOpen = false; onOpenAbout() },
                         )
-
-                        DropdownMenuItem(
-                            text = { Text("Check for Updates") },
-                            onClick = {
-                                menuOpen = false
-
-                                checkForUpdatesClicked(
-                                    context = context,
-                                    scope = scope,
-                                    onResult = { updateResult = it }
-                                )
-                            }
-                        )
+                        // No "Check for Updates" here: the app has no network permission, so the
+                        // check could only fail. Updates come from rebuilding the fork.
                     }
                 }
             )
@@ -582,28 +566,6 @@ private fun NoVulkanDialog(onQuit: () -> Unit) {
         title = { Text("Unsupported device") },
         text = { Text("This device has no Vulkan GPU; the emulator cannot run.") },
     )
-}
-
-fun checkForUpdatesClicked(
-    context: Context,
-    scope: CoroutineScope,
-    onResult: (UpdateResult) -> Unit
-) {
-    scope.launch {
-        if (!shouldCheckForUpdates(context)) {
-            Log.d("Updater", "Skipping update check")
-            onResult(UpdateResult.Cooldown(getRemainingCooldown(context)))
-            return@launch
-        }
-
-        try {
-            val result = checkForUpdates()
-            saveLastCheck(context)
-            onResult(result)
-        } catch (e: Exception) {
-            Log.e("Updater", "Failed to check updates", e)
-        }
-    }
 }
 
 /** Same shape as the content-install formatter, which is private to that file. */
