@@ -180,9 +180,17 @@ fun GameLibraryScreen(
                 LibraryUiState.NoFolder ->
                     EmptyMessage("Storage isn't available right now", "Retry",
                         onAction = { viewModel.refresh() })
+                // Usually All Files Access got turned off. The browser offers to grant
+                // it again, or the user can switch to the app folder.
                 LibraryUiState.PermissionLost ->
-                    EmptyMessage("Can't read the game folder", "Choose another",
-                        onAction = { showBrowser = true })
+                    EmptyMessage(
+                        "Can't read the game folder",
+                        "Choose folder",
+                        onAction = { showBrowser = true },
+                        detail = "If your games are outside the app folder, XenDroid needs " +
+                            "\"All files access\" again. Pick \"Other folders on this " +
+                            "phone\" to grant it.",
+                    )
                 is LibraryUiState.Error ->
                     EmptyMessage(s.message, "Retry", onAction = { viewModel.refresh() })
                 is LibraryUiState.Loaded ->

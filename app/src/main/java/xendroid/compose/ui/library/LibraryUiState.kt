@@ -11,7 +11,7 @@ sealed interface LibraryUiState {
     data object Loading : LibraryUiState
     /** Scan finished. [games] may be empty (folder has no recognized titles). */
     data class Loaded(val games: List<Game>) : LibraryUiState
-    /** The games dir exists but listing it failed (e.g. SD card pulled mid-scan). */
+    /** The saved games dir can't be read: All Files Access turned off, SD card pulled... */
     data object PermissionLost : LibraryUiState
     /** Device has no Vulkan -> emulator cannot run; hard gate. */
     data object NoVulkan : LibraryUiState

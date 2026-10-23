@@ -56,10 +56,16 @@ class GameLibraryRepository(
     }
 
     private suspend fun scanLocked(): ScanResult {
+        val saved = prefs.gameDirPath.firstOrNull()
+        // A saved folder outside what we can read means All Files Access was turned off
+        // (or the path came from an older build). Say so instead of quietly showing the
+        // empty app folder, which would look like the games vanished.
+        if (!saved.isNullOrBlank() && !GamesFolder.contains(appContext, saved)) {
+            return ScanResult.PermissionLost
+        }
         // No folder picked yet is fine, we just scan the default Games folder. NoFolder
         // only happens when not even that one could be created (storage unavailable).
-        val dir = GamesFolder.resolve(appContext, prefs.gameDirPath.firstOrNull())
-            ?: return ScanResult.NoFolder
+        val dir = GamesFolder.resolve(appContext, saved) ?: return ScanResult.NoFolder
         return scanRealPathLocked(dir.absolutePath)
     }
 
