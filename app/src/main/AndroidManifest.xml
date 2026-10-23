@@ -4,8 +4,10 @@
     <!-- Network: core's Application/native may probe; matches legacy :app. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- No storage permissions on purpose. Games live in the app's own external files dir
-         (see GamesFolder.kt), which Android lets us read by real path without asking. -->
+    <!-- Games live in the app's own external files dir by default (see GamesFolder.kt),
+         which needs no permission. All Files Access is only requested if the user picks
+         "Other folders on this phone" in the folder browser (AllFilesAccess.kt). -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <!-- Controller rumble (host Activity, SP1-C; declared now so core code never NPEs). -->
     <uses-permission android:name="android.permission.VIBRATE" />
 

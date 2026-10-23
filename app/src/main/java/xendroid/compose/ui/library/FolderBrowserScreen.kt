@@ -1,6 +1,7 @@
 package xendroid.compose.ui.library
 
 import android.content.Context
+import xendroid.compose.core.AllFilesAccess
 import xendroid.compose.core.GamesFolder
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,12 +27,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.io.File
@@ -40,11 +45,13 @@ import java.io.File
 private data class StorageRoot(val label: String, val dir: File)
 
 /**
- * Small java.io.File directory browser, limited to the app's own games folders
- * ([GamesFolder]). Lists sub-directories only (sorted, hidden skipped) and lets the user
- * confirm the current one as the games folder, so games can be sorted into sub-folders.
+ * Small java.io.File directory browser over the places [GamesFolder] says we can read:
+ * the app's own games folders, and the whole storage if the user opted into All Files
+ * Access. Lists sub-directories only (sorted, hidden skipped) and lets the user confirm
+ * the current one as the games folder.
  *
- * With more than one volume (internal + SD card) there's a "volumes" level on top.
+ * There's a "volumes" level on top whenever there's more than one root, or when the
+ * "Other folders on this phone" opt-in can still be offered.
  *
  * Two modes (the caller picks via which callback it passes):
  *  - folder-pick (default): [onFolderChosen] non-null -> a "Use this folder" button
@@ -63,11 +70,28 @@ fun FolderBrowserScreen(
     onCancel: () -> Unit,
 ) {
     val context = LocalContext.current
-    val roots = remember { enumerateStorageRoots(context) }
+
+    // Granting All Files Access happens in the Settings app and returns no result, so
+    // re-check whenever we come back to the foreground. The roots depend on it.
+    var allFilesGranted by remember { mutableStateOf(AllFilesAccess.isGranted()) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) allFilesGranted = AllFilesAccess.isGranted()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val roots = remember(allFilesGranted) { enumerateStorageRoots(context) }
+
+    // Offer the opt-in only where it exists (API 30+) and isn't granted yet.
+    val offerAllFiles = AllFilesAccess.isSupported && !allFilesGranted
+    // The volume list is skipped when there's just one place to go and nothing to offer.
+    val hasVolumeList = roots.size > 1 || offerAllFiles
 
     // null = the volume-list level.
     var current by remember {
-        mutableStateOf<File?>(roots.singleOrNull()?.dir)
+        mutableStateOf<File?>(if (hasVolumeList) null else roots.firstOrNull()?.dir)
     }
 
     // Subdirectories of the current dir: directories only, no hidden, sorted by name.
@@ -110,7 +134,7 @@ fun FolderBrowserScreen(
                             when {
                                 dir == null -> onCancel()
                                 atVolumeRoot ->
-                                    if (roots.size > 1) current = null else onCancel()
+                                    if (hasVolumeList) current = null else onCancel()
                                 dir.parentFile != null -> current = dir.parentFile
                                 else -> onCancel()
                             }
@@ -119,7 +143,7 @@ fun FolderBrowserScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription =
-                                if (atVolumeList || (atVolumeRoot && roots.size == 1))
+                                if (atVolumeList || (atVolumeRoot && !hasVolumeList))
                                     "Cancel" else "Up",
                         )
                     }
@@ -166,6 +190,23 @@ fun FolderBrowserScreen(
                             modifier = Modifier.clickable { current = root.dir },
                         )
                     }
+                    if (offerAllFiles) {
+                        item(key = "all-files") {
+                            ListItem(
+                                headlineContent = { Text("Other folders on this phone") },
+                                supportingContent = {
+                                    Text(
+                                        "e.g. Documents/Games. Needs \"All files access\", " +
+                                            "which lets the app read all your storage.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    AllFilesAccess.requestAccess(context)
+                                },
+                            )
+                        }
+                    }
                 }
             } else if (subDirs.isEmpty() && files.isEmpty()) {
                 Column(Modifier.fillMaxSize().padding(24.dp)) {
@@ -209,6 +250,6 @@ fun FolderBrowserScreen(
     }
 }
 
-/** Only our own games folders (see [GamesFolder]); anything else is unreadable now. */
+/** Our own games folders, plus whole volumes once All Files Access is granted. */
 private fun enumerateStorageRoots(context: Context): List<StorageRoot> =
     GamesFolder.locations(context).map { StorageRoot(it.label, it.dir) }
