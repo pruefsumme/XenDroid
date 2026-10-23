@@ -24,6 +24,21 @@ issues can be reproduced only on Android. If the issues are on Edge too, then we
 them, and align the port as a consequence.
 
 
+## Where to put your games
+This build doesn't ask for "All files access". It only reads its own folder:
+
+```
+Android/data/xendroid.compose/files/compose/Games
+```
+
+(`xendroid.compose.debug` for debug builds.) Copy your ISO / ZAR / XEX folders in there.
+You can do that on the phone with the system Files app, where the folder shows up as
+**XenDroid > Games**, or from a PC over USB. SD cards get their own `Android/data/...` folder,
+which you can pick under **Set game folder**. Sub-folders work too.
+
+Android deletes this folder when the app is uninstalled, so keep a copy of your games
+somewhere else.
+
 ## Building
 
 See [BUILD.md](BUILD.md) for build instructions.
