@@ -60,6 +60,19 @@ object GamesFolder {
     fun default(context: Context): File? = locations(context).firstOrNull()?.dir
 
     /**
+     * The folder the library should scan, given what's saved in the prefs.
+     * Falls back to the default folder when nothing is saved yet, or when the saved
+     * path is from an older build and points somewhere we can't read anymore.
+     */
+    fun resolve(context: Context, savedPath: String?): File? {
+        if (!savedPath.isNullOrBlank() && contains(context, savedPath)) {
+            val dir = File(savedPath)
+            if (dir.isDirectory) return dir
+        }
+        return default(context)
+    }
+
+    /**
      * True when [path] is one of our games folders or somewhere below one.
      * Mostly used to spot a path saved by an older build (anywhere on the device, back
      * when we had All Files Access) that we can no longer read.

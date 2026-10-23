@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -29,7 +30,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import xendroid.compose.core.AllFilesAccess
 import xendroid.compose.core.EmuProcessLink
 import xendroid.compose.data.Game
 import xendroid.compose.data.GameFormat
@@ -76,13 +76,7 @@ fun GameLibraryScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     var showBrowser by remember { mutableStateOf(false) }
-    var allFilesGranted by remember { mutableStateOf(AllFilesAccess.isGranted()) }
-    // Not-yet-granted sends the user to Settings; the grant returns no result, so it is
-    // observed on the next ON_START.
-    val startRealPathMode: () -> Unit = {
-        if (AllFilesAccess.isGranted()) showBrowser = true
-        else AllFilesAccess.requestAccess(context)
-    }
+    val gamesDir by viewModel.gamesDir.collectAsStateWithLifecycle()
 
     // Re-scan on return to foreground to pick up games added while backgrounded. The
     // ViewModel's init does the first cold-start load, so the first ON_START is skipped.
@@ -91,7 +85,6 @@ fun GameLibraryScreen(
         var firstStart = true
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
-                allFilesGranted = AllFilesAccess.isGranted()
                 if (firstStart) firstStart = false else viewModel.refresh()
             }
         }
@@ -123,14 +116,10 @@ fun GameLibraryScreen(
                         Icon(Icons.Default.MoreVert, contentDescription = "More")
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        // Only offered where All Files Access exists (API 30+); on API 29 the
-                        // empty state explains why.
-                        if (AllFilesAccess.isSupported) {
-                            DropdownMenuItem(
-                                text = { Text("Set game folder") },
-                                onClick = { menuOpen = false; startRealPathMode() },
-                            )
-                        }
+                        DropdownMenuItem(
+                            text = { Text("Set game folder") },
+                            onClick = { menuOpen = false; showBrowser = true },
+                        )
                         DropdownMenuItem(
                             text = { Text("Install content") },
                             onClick = { menuOpen = false; onOpenInstallContent() },
@@ -182,29 +171,28 @@ fun GameLibraryScreen(
             modifier = Modifier.fillMaxSize().padding(padding),
         ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            val setFolderLabel = if (allFilesGranted) "Set game folder" else "Grant All Files Access"
             when (val s = state) {
                 LibraryUiState.NoVulkan ->
                     NoVulkanDialog(onQuit = { (context as? Activity)?.finish() })
                 LibraryUiState.Loading -> CircularProgressIndicator()
-                // All Files Access is API 30+; on API 29 there is no games path at all.
+                // Even the default Games folder couldn't be created, so storage is
+                // probably not mounted (or full). Nothing to pick from, just retry.
                 LibraryUiState.NoFolder ->
-                    if (AllFilesAccess.isSupported)
-                        EmptyMessage("No game folder set", setFolderLabel,
-                            onAction = startRealPathMode)
-                    else
-                        EmptyMessage(
-                            "Setting a game folder requires Android 11 or newer.",
-                            "OK", onAction = {})
+                    EmptyMessage("Storage isn't available right now", "Retry",
+                        onAction = { viewModel.refresh() })
                 LibraryUiState.PermissionLost ->
-                    EmptyMessage("Folder access lost", setFolderLabel,
-                        onAction = startRealPathMode)
+                    EmptyMessage("Can't read the game folder", "Choose another",
+                        onAction = { showBrowser = true })
                 is LibraryUiState.Error ->
                     EmptyMessage(s.message, "Retry", onAction = { viewModel.refresh() })
                 is LibraryUiState.Loaded ->
                     if (s.games.isEmpty())
-                        EmptyMessage("No games in this folder", "Choose another",
-                            onAction = startRealPathMode)
+                        EmptyMessage(
+                            "No games in this folder",
+                            "Choose another",
+                            onAction = { showBrowser = true },
+                            detail = gamesDir?.let { copyGamesHint(it) },
+                        )
                     else GameGrid(
                         games = s.games,
                         viewModel = viewModel,
@@ -546,13 +534,32 @@ private fun EmptyMessage(
     text: String,
     action: String,
     onAction: () -> Unit,
+    detail: String? = null,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        Modifier.padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Text(text, style = MaterialTheme.typography.bodyLarge)
+        if (detail != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                detail,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+            )
+        }
         Spacer(Modifier.height(12.dp))
         Button(onClick = onAction) { Text(action) }
     }
 }
+
+/** The app can only read its own folders now, so tell people where games have to go. */
+private fun copyGamesHint(dir: String): String =
+    "Copy your games to:\n$dir\n\n" +
+        "On internal storage you can do that on the phone: the system Files app shows " +
+        "it as \"XenDroid\" > Games. From a PC, connect over USB and use the same path. " +
+        "Note: uninstalling the app deletes this folder."
 
 @Composable
 private fun NoVulkanDialog(onQuit: () -> Unit) {

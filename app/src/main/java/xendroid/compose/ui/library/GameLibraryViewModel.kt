@@ -69,6 +69,10 @@ class GameLibraryViewModel(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    /** The folder actually being scanned, so the empty state can say where to copy games. */
+    private val _gamesDir = MutableStateFlow<String?>(null)
+    val gamesDir: StateFlow<String?> = _gamesDir.asStateFlow()
+
     init { refresh() }
 
     fun refresh() {
@@ -87,6 +91,7 @@ class GameLibraryViewModel(
                     EmulatorRuntime.ensureLoaded()
                     ProfileBootstrap.ensureDefaultProfile(appContext)
                 }
+                _gamesDir.value = repo.currentGameDirPath()
                 when (val r = repo.scan()) {
                     GameLibraryRepository.ScanResult.NoFolder -> LibraryUiState.NoFolder
                     GameLibraryRepository.ScanResult.PermissionLost -> LibraryUiState.PermissionLost
@@ -104,8 +109,8 @@ class GameLibraryViewModel(
         }
     }
 
-    /** Real-path (All Files Access) folder chosen in the built-in browser: persist the
-     *  abs path + rescan. */
+    /** Folder chosen in the built-in browser (always inside one of our games folders):
+     *  persist the abs path + rescan. */
     fun onRealPathFolderPicked(path: String) {
         viewModelScope.launch {
             repo.saveGameDirPath(path)

@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import xendroid.compose.core.ContentPaths
 import xendroid.compose.core.GameMetadataSource
+import xendroid.compose.core.GamesFolder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.sync.Mutex
@@ -34,11 +35,11 @@ class GameLibraryRepository(
         data class Games(val games: List<Game>) : ScanResult
     }
 
-    /** Validates the path is a readable directory FIRST so a later scan can't fail
-     *  PermissionLost on an unreadable dir. Returns whether it was saved. */
+    /** Validates the path is a readable directory inside one of our games folders FIRST,
+     *  so a later scan can't fail PermissionLost on it. Returns whether it was saved. */
     suspend fun saveGameDirPath(path: String): Boolean = withContext(Dispatchers.IO) {
         val dir = File(path)
-        if (!dir.isDirectory || dir.listFiles() == null) {
+        if (!GamesFolder.contains(appContext, path) || !dir.isDirectory || dir.listFiles() == null) {
             Log.w(tag, "saveGameDirPath rejected (not a readable dir): $path")
             return@withContext false
         }
@@ -47,7 +48,7 @@ class GameLibraryRepository(
     }
 
     suspend fun currentGameDirPath(): String? = withContext(Dispatchers.IO) {
-        prefs.gameDirPath.firstOrNull()
+        GamesFolder.resolve(appContext, prefs.gameDirPath.firstOrNull())?.absolutePath
     }
 
     suspend fun scan(): ScanResult = withContext(Dispatchers.IO) {
@@ -55,8 +56,11 @@ class GameLibraryRepository(
     }
 
     private suspend fun scanLocked(): ScanResult {
-        val dir = prefs.gameDirPath.firstOrNull() ?: return ScanResult.NoFolder
-        return scanRealPathLocked(dir)
+        // No folder picked yet is fine, we just scan the default Games folder. NoFolder
+        // only happens when not even that one could be created (storage unavailable).
+        val dir = GamesFolder.resolve(appContext, prefs.gameDirPath.firstOrNull())
+            ?: return ScanResult.NoFolder
+        return scanRealPathLocked(dir.absolutePath)
     }
 
     /** Resolve a game's title id for the per-game config path (boot-free).
@@ -117,7 +121,7 @@ class GameLibraryRepository(
     }
 
     /** Walk the games dir and every subdirectory, classify each entry, sort. A null listing
-     *  on the ROOT (grant revoked) -> [ScanResult.PermissionLost]; an unreadable subdirectory
+     *  on the ROOT (e.g. SD card removed) -> [ScanResult.PermissionLost]; an unreadable subdirectory
      *  is skipped. */
     private fun scanRealPathLocked(dirPath: String): ScanResult {
         val root = File(dirPath)

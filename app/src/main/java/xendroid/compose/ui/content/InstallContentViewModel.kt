@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 import xendroid.compose.core.ContentPaths
 import xendroid.compose.core.EmulatorRuntime
 import xendroid.compose.core.GameMetadataSource
+import xendroid.compose.core.GamesFolder
 import xendroid.compose.data.PreferencesStore
 import java.io.File
 
@@ -173,7 +174,7 @@ class InstallContentViewModel(
     }
 
     private suspend fun gamesDirOrNull(): File? =
-        prefs.gameDirPath.firstOrNull()?.takeIf { it.isNotBlank() }?.let { File(it) }
+        GamesFolder.resolve(appContext, prefs.gameDirPath.firstOrNull())
 
     private suspend fun runInstall(srcPath: String, name: String, label: String?) {
         _state.value = ContentInstallState.Busy("Installing…", 0f)
