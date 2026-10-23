@@ -4,16 +4,8 @@
     <!-- Network: core's Application/native may probe; matches legacy :app. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Legacy storage (maxSdkVersion guards: SAF is the real path on 29+). -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="29" />
-    <!-- All Files Access (API 30+) real-path mode: an ALTERNATIVE to scoped SAF for
-         devices (MIUI/HyperOS) whose OPEN_DOCUMENT_TREE picker refuses every folder.
-         When granted, the library scans + boots from a real filesystem path instead of
-         content:// SAF uris (no /proc/self/fd open). SAF stays the default mode. -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <!-- No storage permissions on purpose. Games live in the app's own external files dir
+         (see GamesFolder.kt), which Android lets us read by real path without asking. -->
     <!-- Controller rumble (host Activity, SP1-C; declared now so core code never NPEs). -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
