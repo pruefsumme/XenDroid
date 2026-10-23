@@ -1,8 +1,6 @@
 package xendroid.compose
 
-import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
@@ -30,6 +28,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import androidx.lifecycle.lifecycleScope
 import android.content.res.Configuration
 import android.widget.Toast
@@ -174,12 +173,13 @@ class EmulatorHostActivity : ComponentActivity(), SurfaceHolder.Callback {
             // read it off-main via ConfigStore.
             showFpsOverlay.value = withContext(Dispatchers.IO) { readShowDebugOverlay() }
 
-            // Guard on the LIVE grant: revoked-in-Settings while away => fail cleanly
-            // instead of booting against a path we can no longer read.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
-                !Environment.isExternalStorageManager()) {
+            // A pinned shortcut can outlive its game (deleted, moved, SD card pulled), or
+            // point at a path from an older build that we can't read anymore. Bail out
+            // cleanly here, the native core would just fail somewhere deep in the boot.
+            val readable = withContext(Dispatchers.IO) { File(gameUri).canRead() }
+            if (!readable) {
                 Toast.makeText(this@EmulatorHostActivity,
-                    "All Files Access not granted; open the library first",
+                    "Can't read this game anymore; open the library and pick it again",
                     Toast.LENGTH_LONG).show()
                 finish(); return@launch
             }
