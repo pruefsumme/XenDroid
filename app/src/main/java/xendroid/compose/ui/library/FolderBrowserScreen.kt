@@ -1,9 +1,7 @@
 package xendroid.compose.ui.library
 
 import android.content.Context
-import android.os.Build
-import android.os.Environment
-import android.os.storage.StorageManager
+import xendroid.compose.core.GamesFolder
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -42,13 +40,11 @@ import java.io.File
 private data class StorageRoot(val label: String, val dir: File)
 
 /**
- * Self-contained java.io.File directory browser for REAL-PATH (All Files Access) mode.
- * Replaces the SAF OPEN_DOCUMENT_TREE picker, which MIUI/HyperOS refuses. Starts at the
- * primary external storage root, lists subdirectories only (sorted, hidden skipped), and
- * lets the user confirm the current directory as the games folder.
+ * Small java.io.File directory browser, limited to the app's own games folders
+ * ([GamesFolder]). Lists sub-directories only (sorted, hidden skipped) and lets the user
+ * confirm the current one as the games folder, so games can be sorted into sub-folders.
  *
- * Mounted removable volumes (USB/SD) get a "volumes" level above the storage roots;
- * enumeration needs API 30+, below that only primary storage is offered.
+ * With more than one volume (internal + SD card) there's a "volumes" level on top.
  *
  * Two modes (the caller picks via which callback it passes):
  *  - folder-pick (default): [onFolderChosen] non-null -> a "Use this folder" button
@@ -56,8 +52,8 @@ private data class StorageRoot(val label: String, val dir: File)
  *  - file-pick: [onFileChosen] non-null -> regular files are ALSO listed and tapping one
  *    returns its absolute path (used by "Install content / DLC" to pick a package).
  *
- * listFiles() may return null for an unreadable directory (e.g. Android/data) even with
- * All Files Access -- that is handled as "no entries" rather than a crash.
+ * The user can't navigate above a root: going "up" from a root goes back to the volume
+ * list or closes the browser, never to the parent dir (which we couldn't read anyway).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,7 +67,7 @@ fun FolderBrowserScreen(
 
     // null = the volume-list level.
     var current by remember {
-        mutableStateOf<File?>(if (roots.size > 1) null else roots.first().dir)
+        mutableStateOf<File?>(roots.singleOrNull()?.dir)
     }
 
     // Subdirectories of the current dir: directories only, no hidden, sorted by name.
@@ -213,25 +209,6 @@ fun FolderBrowserScreen(
     }
 }
 
-/** Primary storage plus mounted removable volumes (API 30+; primary-only below). */
-private fun enumerateStorageRoots(context: Context): List<StorageRoot> {
-    val primary = Environment.getExternalStorageDirectory() ?: File("/")
-    val roots = mutableListOf(StorageRoot("Internal storage", primary))
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        try {
-            val sm = context.getSystemService(Context.STORAGE_SERVICE) as StorageManager
-            for (volume in sm.storageVolumes) {
-                if (volume.isPrimary) continue
-                if (volume.state != Environment.MEDIA_MOUNTED &&
-                    volume.state != Environment.MEDIA_MOUNTED_READ_ONLY
-                ) {
-                    continue
-                }
-                val dir = volume.directory ?: continue
-                roots.add(StorageRoot(volume.getDescription(context) ?: dir.name, dir))
-            }
-        } catch (_: Exception) {
-        }
-    }
-    return roots
-}
+/** Only our own games folders (see [GamesFolder]); anything else is unreadable now. */
+private fun enumerateStorageRoots(context: Context): List<StorageRoot> =
+    GamesFolder.locations(context).map { StorageRoot(it.label, it.dir) }
